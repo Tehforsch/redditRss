@@ -1,6 +1,7 @@
 import praw
-import PyRSS2Gen as rssGen
 import datetime
+import time
+from feedgen.feed import FeedGenerator
 
 def readSecrets():
     with open("redditAppData", "r") as f:
@@ -15,29 +16,34 @@ def readSecrets():
 reddit = praw.Reddit(**readSecrets())
 
 def readTopPosts(subredditName):
-    submissions = reddit.subreddit("learnpython").top(limit=10, time_filter="day")
+    submissions = reddit.subreddit(subredditName).top(limit=10, time_filter="day")
     return submissions
 
-def generateRss(outputFile, title, submissions):
-    rss =rssGen.RSS2(
-        title="cool feed title",
-        link="??",
-        description="cool feed",
-        lastBuildDate=datetime.datetime.now(),
-        items=[submissionItem(submission) for submission in submissions]
-    )
-    rss.write_xml(open(outputFile, "w"))
+def generateRss(submissions, outputFile, title, description, link):
+    feedGen = FeedGenerator()
+    feedGen.id('http://reddit.com/r/dota2/top')
+    feedGen.title(title)
+    feedGen.link({"href":link})
+    feedGen.description(description)
+    for submission in submissions:
+        feedItem = feedGen.add_entry()
+        submissionItem(feedItem, submission)
+    feedGen.rss_str(pretty=True)
+    feedGen.rss_file(outputFile)
     
-def submissionItem(submission):
-    return rssGen.RSSItem(
-        title=submission.title,
-        link=submission.url,
-        description="hello",
-        guid = rssGen.Guid(submission.url),
-        pubDate=datetime.datetime.now()
-    )
+def submissionItem(feedEntry, submission):
+    feedEntry.title(submission.title)
+    feedEntry.id(submission.url)
 
 def generateSubredditRss(subredditName):
-    generateRss("out.xml", subredditName, readTopPosts(subredditName))
+    generateRss(
+            readTopPosts(subredditName), 
+            "{}.xml".format(subredditName), 
+            "Top posts {}".format(subredditName),
+            "Top posts {}".format(subredditName),
+            "reddit.com/r/{}/top".format(subredditName)
+            )
 
-generateSubredditRss("learnpython")
+while True:
+    generateSubredditRss("dota2")
+    time.sleep(600)

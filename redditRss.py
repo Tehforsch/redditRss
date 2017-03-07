@@ -15,13 +15,13 @@ def readSecrets():
 
 reddit = praw.Reddit(**readSecrets())
 
-def readTopPosts(subredditName):
-    submissions = reddit.subreddit(subredditName).top(limit=10, time_filter="day")
+def readTopPosts(subredditName, numPosts):
+    submissions = reddit.subreddit(subredditName).top(limit=numPosts, time_filter="day")
     return submissions
 
-def generateRss(submissions, outputFile, title, description, link):
+def generateRss(submissions, outputFile, title, description, link, _id):
     feedGen = FeedGenerator()
-    feedGen.id('http://reddit.com/r/dota2/top')
+    feedGen.id(_id)
     feedGen.title(title)
     feedGen.link({"href":link})
     feedGen.description(description)
@@ -33,17 +33,26 @@ def generateRss(submissions, outputFile, title, description, link):
     
 def submissionItem(feedEntry, submission):
     feedEntry.title(submission.title)
-    feedEntry.id(submission.url)
+    feedEntry.id(submission.url + "/")
+    feedEntry.link({"href":submission.shortlink})
+    feedEntry.description(submission.selftext)
 
-def generateSubredditRss(subredditName):
+def generateSubredditRss(subredditName, numPosts):
     generateRss(
-            readTopPosts(subredditName), 
-            "{}.xml".format(subredditName), 
-            "Top posts {}".format(subredditName),
-            "Top posts {}".format(subredditName),
-            "reddit.com/r/{}/top".format(subredditName)
+            submissions=readTopPosts(subredditName, numPosts),
+            outputFile="feeds/{}.xml".format(subredditName),
+            title="Top posts {}".format(subredditName),
+            description="Top posts {}".format(subredditName),
+            link="reddit.com/r/{}/top".format(subredditName),
+            _id="reddit.com/r/{}/top".format(subredditName)
             )
 
-while True:
-    generateSubredditRss("dota2")
-    time.sleep(600)
+def getSubredditList():
+    with open("subreddits", "r") as f:
+        for l in f.readlines():
+            name, numPosts = l.replace("\n", "").split()
+            numPosts = int(numPosts)
+            yield name, numPosts
+
+for (subreddit, numPosts) in getSubredditList():
+    generateSubredditRss(subreddit, numPosts)

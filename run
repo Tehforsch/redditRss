@@ -1,5 +1,5 @@
 while [ 1 ]; do
 echo "Refreshing"
 python3 redditRss.py
-sleep 600
+sleep 1000
 done

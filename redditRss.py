@@ -15,9 +15,13 @@ def readSecrets():
 
 reddit = praw.Reddit(**readSecrets())
 
-def readTopPosts(subredditName, numPosts):
-    submissions = reddit.subreddit(subredditName).top(limit=numPosts, time_filter="day")
-    return submissions
+def readTopPosts(subredditName, numPosts, filters):
+    if filters != []:
+        submissions = list(reddit.subreddit(subredditName).top(limit=numPosts*3, time_filter="day"))
+        submissions = [submission for (i, submission) in enumerate(submissions) if (i < numPosts) and not any(flairToFilter.lower() in submission.link_flair_text.lower() for flairToFilter in filters)]
+    else:
+        submissions = reddit.subreddit(subredditName).top(limit=numPosts, time_filter="day")
+    return list(submissions)
 
 def generateRss(submissions, outputFile, title, description, link, _id):
     feedGen = FeedGenerator()
@@ -37,9 +41,9 @@ def submissionItem(feedEntry, submission):
     feedEntry.link({"href":submission.shortlink})
     feedEntry.description(submission.selftext)
 
-def generateSubredditRss(subredditName, numPosts):
+def generateSubredditRss(subredditName, numPosts, filters):
     generateRss(
-            submissions=readTopPosts(subredditName, numPosts),
+            submissions=readTopPosts(subredditName, numPosts, filters),
             outputFile="feeds/{}.xml".format(subredditName),
             title="Top posts {}".format(subredditName),
             description="Top posts {}".format(subredditName),
@@ -50,9 +54,9 @@ def generateSubredditRss(subredditName, numPosts):
 def getSubredditList():
     with open("subreddits", "r") as f:
         for l in f.readlines():
-            name, numPosts = l.replace("\n", "").split()
+            name, numPosts, *filters = l.replace("\n", "").split()
             numPosts = int(numPosts)
-            yield name, numPosts
+            yield (name, numPosts, filters)
 
-for (subreddit, numPosts) in getSubredditList():
-    generateSubredditRss(subreddit, numPosts)
+for (subreddit, numPosts, *filters) in getSubredditList():
+    generateSubredditRss(subreddit, numPosts, *filters)
